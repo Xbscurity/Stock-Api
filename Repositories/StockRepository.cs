@@ -14,10 +14,10 @@ namespace api.Repositories
     public class StockRepository : IStockRepository
     {
         private readonly ApplicationDbContext _context;
-public StockRepository(ApplicationDbContext context)
-{
-_context = context;    
-}
+        public StockRepository(ApplicationDbContext context)
+        {
+            _context = context;
+        }
 
         public async Task<Stock> CreateAsync(Stock stockModel)
         {
@@ -29,7 +29,7 @@ _context = context;
         public async Task<Stock?> DeleteAsync(int id)
         {
             var stockModel = _context.Stocks.Find(id);
-            if(stockModel == null)
+            if (stockModel == null)
             {
                 return null;
             }
@@ -38,22 +38,28 @@ _context = context;
             return stockModel;
         }
 
-        public  Task<List<TResult>> GetAllAsync<TResult>(Expression<Func<Stock, TResult>> selector)
-{
-    return  _context.Stocks.AsNoTracking()
-        .Select(selector)
-        .ToListAsync();
-}
+        public Task<List<TResult>> GetAllAsync<TResult>(Expression<Func<Stock, TResult>> selector)
+        {
+            return _context.Stocks.AsNoTracking()
+                .Include(s => s.Comments)
+                .Select(selector)
+                .ToListAsync();
+        }
 
         public async Task<Stock?> GetByIdAsync(int id)
         {
-            return await _context.Stocks.FindAsync(id);
+            return await _context.Stocks.Include(s => s.Comments).FirstOrDefaultAsync(s=>s.Id == id);
+        }
+
+        public Task<bool> StockExists(int id)
+        {
+            return _context.Stocks.AnyAsync(s => s.Id == id);
         }
 
         public async Task<Stock?> UpdateAsync(int id, UpdateStockRequestDto updateDto)
         {
             var stockModel = await _context.Stocks.FindAsync(id);
-            if(stockModel == null)
+            if (stockModel == null)
             {
                 return null;
             }
