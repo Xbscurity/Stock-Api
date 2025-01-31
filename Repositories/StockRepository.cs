@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using api.Data;
 using api.Dtos.Stock;
+using api.Helpers;
 using api.Interfaces;
 using api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -38,17 +40,39 @@ namespace api.Repositories
             return stockModel;
         }
 
-        public Task<List<TResult>> GetAllAsync<TResult>(Expression<Func<Stock, TResult>> selector)
+        public async Task<List<TResult>> GetAllAsync<TResult>(Expression<Func<Stock, TResult>> selector, QueryObject query)
         {
-            return _context.Stocks.AsNoTracking()
+            var stocks = _context.Stocks.AsNoTracking()
                 .Include(s => s.Comments)
-                .Select(selector)
-                .ToListAsync();
+                .AsQueryable();
+            if (!string.IsNullOrWhiteSpace(query.CompanyName))
+            {
+                stocks = stocks.Where(s => s.CompanyName.Contains(query.CompanyName));
+            }
+            if (!string.IsNullOrWhiteSpace(query.Symbol))
+            {
+                stocks = stocks.Where(s => s.Symbol.Contains(query.Symbol));
+            }
+            if (!string.IsNullOrWhiteSpace(query.SortBy))
+            {
+                stocks = query.SortBy.ToLower() switch
+                {
+                    "stock" => query.IsDescending ? stocks.OrderByDescending(s => s.Symbol) : stocks.OrderBy(s => s.Symbol),
+                    "companyname" => query.IsDescending ? stocks.OrderByDescending(s => s.CompanyName) : stocks.OrderBy(s => s.CompanyName),
+                    "industry" => query.IsDescending ? stocks.OrderByDescending(s => s.Industry) : stocks.OrderBy(s => s.Industry),
+                    "lastdiv" => query.IsDescending ? stocks.OrderByDescending(s => s.LastDiv) : stocks.OrderBy(s => s.LastDiv),
+                    "purchase" => query.IsDescending ? stocks.OrderByDescending(s => s.Purchase) : stocks.OrderBy(s => s.Purchase),
+                    "marketcap" => query.IsDescending ? stocks.OrderByDescending(s => s.MarketCap) : stocks.OrderBy(s => s.MarketCap),
+                    _ => stocks
+                };
+            }
+            var skipNumber = (query.PageNumber - 1) * query.PageSize;
+            return await stocks.Skip(skipNumber).Take(query.PageSize).Select(selector).ToListAsync();
         }
 
         public async Task<Stock?> GetByIdAsync(int id)
         {
-            return await _context.Stocks.Include(s => s.Comments).FirstOrDefaultAsync(s=>s.Id == id);
+            return await _context.Stocks.Include(s => s.Comments).FirstOrDefaultAsync(s => s.Id == id);
         }
 
         public Task<bool> StockExists(int id)

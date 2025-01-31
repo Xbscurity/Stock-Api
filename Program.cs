@@ -32,4 +32,3 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.MapControllers();
 app.Run();
-
